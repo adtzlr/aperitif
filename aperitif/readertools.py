@@ -31,37 +31,30 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 def convert_material_parameters(mtype,mparam,mat):
-    if mtype.lower() == 'neo-hooke':
-        mat.parameters.mu = mparam[1]
-        mat.parameters.K = mparam[0]
-    if mtype.lower() == 'mooney-rivlin':
-        mat.parameters.C10 = mparam[1]
-        mat.parameters.C01 = mparam[2]
-        mat.parameters.K = mparam[0]
+
+    p = mat.parameters
+    p.K = np.array([mparam[0]]).reshape(1,1)
+
     if mtype.lower() == 'invariants':
-        mat.parameters.K   = mparam[0]
-        mat.parameters.C10 = mparam[1]
-        mat.parameters.C01 = mparam[2]
-        mat.parameters.C11 = mparam[3]
-        mat.parameters.C20 = mparam[4]
-        mat.parameters.C30 = mparam[5]
-    if mtype.lower() == 'multi-k' or 'multi-k-test':
-        mat.parameters.n = int(mparam[1])
-        mat.parameters.mu = mparam[2:mat.parameters.n+2]
-        mat.parameters.k = mparam[mat.parameters.n+2:2*mat.parameters.n+2]
-        mat.parameters.K = mparam[0]
-    if mtype.lower() == 'svk':
-        mat.parameters.n = int(mparam[1])
-        mat.parameters.mu   = mparam[0*mat.parameters.n+2:1*mat.parameters.n+2]
-        mat.parameters.lmbd = mparam[1*mat.parameters.n+2:2*mat.parameters.n+2]
-        mat.parameters.k    = mparam[2*mat.parameters.n+2:3*mat.parameters.n+2]
-        mat.parameters.a    = mparam[3*mat.parameters.n+2:4*mat.parameters.n+2]
-        mat.parameters.K    = mparam[0]
-    if mtype.lower() == 'svk-simple':
-        E = mparam[1]
-        nu = mparam[2]
-        mat.parameters.mu   = E/(2*(1+nu))
-        mat.parameters.lmbd = E*nu/((1+nu)*(1-2*nu))
+        # [bulk k ---- m01k m02k m03k 
+        #         m10k m11k m12k m13k 
+        #         m20k m21k m22k m23k
+        #         m30k m31k m32k m33k]
+        p.k  = np.array([mparam[1]]).reshape(1,1)
+        p.mu = np.array(mparam[2:18]).reshape(1,4,4)
+        
+    if mtype.lower() == 'multi-k':
+        # [K n mu_1 ... mu_n
+        #       k_1 ...  k_n]
+        p.n = int(mparam[1])
+        
+        # init k,mu
+        p.k = np.zeros(p.n)
+        p.mu = np.zeros((p.n,4,4))
+        
+        for n in range(p.n):
+            p.mu[n,1,0] = mparam[2+n    ]
+            p.k[n]      = mparam[2+n+p.n]
         
     return mat
     
