@@ -169,7 +169,7 @@ def init_const_table():
     return tbl0
     
 # create time dependent function for external displacements
-def ext_displacements(t):
+def ext_displacements(t,model):
     ed = model._ext_displacements_0.copy()
     # evaluate boundary conditions at time t and save values
     for blabel, bc in model.boundaries.items():
@@ -178,7 +178,7 @@ def ext_displacements(t):
         ed[model._ext_displacements_b==blabel] = value*tbl_value
     return ed
 
-def ext_forces(t):
+def ext_forces(t,model):
     ef = model._ext_forces_0.copy()
     # evaluate boundary conditions at time t and save values
     for blabel, bc in model.boundaries.items():
