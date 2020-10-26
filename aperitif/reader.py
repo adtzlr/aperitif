@@ -31,6 +31,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 from types import SimpleNamespace
+from functools import partial
 
 import pandas as pd
 import numpy as np
@@ -42,7 +43,6 @@ import geometry
 
 import readertools
 
-#%% Input
 def read(filename):
     """
     Read an input file and return modeldata.
@@ -76,7 +76,7 @@ def read(filename):
     print('READ INPUT FILE')
     print('===============\n')
     
-    # read xlsx-inputfile to dataframe
+    # read xlsx-inputfile to pandas dataframe
     df = pd.read_excel(filename,sheet_name=None)
     
     # get data of sheets from xlsx-file
@@ -89,8 +89,9 @@ def read(filename):
     bcdata         = df['BoundaryConditions']
     lcdata         = df['Loadcases']
     
-    # create structs for elements and materials
+    # init model struct
     model = SimpleNamespace()
+    
     model.filename  = filename
     print('Inputfile:', model.filename)
 
@@ -118,15 +119,20 @@ def read(filename):
     print('No. of DOF:      %d' % model.ndof)
     print('\n')
           
-    # add 'None' Table for constant valued boundary Conditions
+    # postprocess table library
+    # -------------------------
+    
+    # init dummy Table for constant-valued boundary Conditions
     tbl0 = readertools.init_const_table()
     
-    # add dummy tables for "None,Fixed,Constant"
-    model.tables['None'] = tbl0
-    model.tables['Fixed'] = tbl0
-    model.tables['Constant'] = tbl0
+    # add dummy Tables for "None,Fixed,Constant" bc's
+    keys = ['None','Fixed','Constant']
+    for key in keys:
+        mode.tables[key] = tbl0
 
-    # create external displacements from inputfile
+    # create external displacements and forces functions from inputfile
+    # -----------------------------------------------------------------
+    
     # get array with displacement boundary condition label for each dof
     model._ext_displacements_b = np.array(dofdata.drop(columns=['Id']).values, dtype=object)
     model._ext_displacements_0 = np.zeros_like(model.nodes)
@@ -143,14 +149,21 @@ def read(filename):
     # replace all non-prescribed dof's with NaN multiplier vaLue
     model._ext_displacements_0[model.dof.active] = np.nan
     
-    # save external forces and disp. to data
-    model.ext_forces = readertools.ext_forces
-    model.ext_displacements = readertools.ext_displacements
+    # save external forces and disp. to model
+    ext_forces        = partial(readertools.ext_forces,        model=model)
+    ext_displacements = partial(readertools.ext_displacements, model=model)
+    model.ext_forces        = ext_forces
+    model.ext_displacements = ext_displacements
     
+    # init elements
     model.elements.v0  = np.zeros(model.nelements)
     model.elements.Tai = np.zeros(model.nelements,dtype=object)
     model.elements.Kai = np.zeros(model.nelements,dtype=object)
     model.elements.Kbj = np.zeros(model.nelements,dtype=object)
+    
+    # calculate initial element volumes
+    # and positions of the elemental internal force and tangent stiffness
+    # components in the global system matrices
     for a,(etype,conn) in enumerate(zip(model.elements.types,
                                         model.elements.connectivities)):
         model.elements.v0[a]  = geometry.volume(model.nodes[conn])
@@ -159,6 +172,7 @@ def read(filename):
         model.elements.Kai[a] = aibj[0]
         model.elements.Kbj[a] = aibj[1]
         
+    # check if three-field-variation is used in any element of the analysis
     if any([etype.endswith('p') for etype in model.elements.types]):
            print('\nThree-Field-Variational Principle:')
            print(  '----------------------------------')
