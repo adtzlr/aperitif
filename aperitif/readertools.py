@@ -31,7 +31,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 def convert_material_parameters(mtype,mparam,mat):
-
+    '''Convert material parameters to namespaces.'''
     p = mat.parameters
     p.K = np.array([mparam[0]]).reshape(1,1)
 
@@ -59,6 +59,7 @@ def convert_material_parameters(mtype,mparam,mat):
     return mat
     
 def create_elements(elementdata):
+    '''Generate element library from dataframe.'''
     elements  = SimpleNamespace()
     
     # store element type "Quad4" as lowercase string "quad4"
@@ -70,6 +71,7 @@ def create_elements(elementdata):
     return elements
     
 def create_materials(materialdata):
+    '''Generate material library from dataframe.'''
     # create material library from inputfile
     # init an empty dictionary, loop over materials in inputfile
     materials = {}
@@ -90,6 +92,7 @@ def create_materials(materialdata):
     return materials
     
 def create_tables(tabledata):
+    '''Generate tables library from dataframe.'''
     # create table library from inputfile
     # init an empty dictionary, loop over tables in inputfile
     tables = {}
@@ -111,6 +114,7 @@ def create_tables(tabledata):
     return tables
     
 def create_boundary_conditions(bcdata):
+    '''Generate boundary conditions library from dataframe.'''
     # create boundary conditions library from inputfile
     # init an empty dictionary, loop over boundaries in inputfile
     boundaries = {}
@@ -126,6 +130,7 @@ def create_boundary_conditions(bcdata):
     return boundaries
     
 def create_loadcases(lcdata):
+    '''Generate loadcase library from dataframe.'''
     # create loadcase library from inputfile
     # init an empty list, loop over loadcases in inputfile
     loadcases = []
@@ -151,6 +156,7 @@ def create_loadcases(lcdata):
     return loadcases
     
 def create_dofs(dofdata):
+    '''Generate dof-library from dataframe.'''
     # create active (=free) / inactive (=prescribed, controlled) dof mask
     dof = SimpleNamespace()
     dof.inactive = dofdata.drop(columns=['Id']).values.astype(bool)
@@ -158,6 +164,7 @@ def create_dofs(dofdata):
     return dof
     
 def init_const_table():
+    '''Init a dummy-table which always returns 1.'''
     tbl0 = SimpleNamespace() 
     tbl0.id = -1
     tbl0.label = 'None'
@@ -170,6 +177,7 @@ def init_const_table():
     
 # create time dependent function for external displacements
 def ext_displacements(t,model):
+    '''Generate time-dependent functions for external displacements.'''
     ed = model._ext_displacements_0.copy()
     # evaluate boundary conditions at time t and save values
     for blabel, bc in model.boundaries.items():
@@ -179,6 +187,7 @@ def ext_displacements(t,model):
     return ed
 
 def ext_forces(t,model):
+    '''Generate time-dependent functions for external forces.'''
     ef = model._ext_forces_0.copy()
     # evaluate boundary conditions at time t and save values
     for blabel, bc in model.boundaries.items():
