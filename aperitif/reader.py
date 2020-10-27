@@ -172,7 +172,8 @@ def read(filename):
         model.elements.Kai[a] = aibj[0]
         model.elements.Kbj[a] = aibj[1]
         
-    # check if three-field-variation is used in any element of the analysis
+    # check if three-field-variational principle is used 
+    # in any element of the analysis
     if any([etype.endswith('p') for etype in model.elements.types]):
            print('\nThree-Field-Variational Principle:')
            print(  '----------------------------------')
