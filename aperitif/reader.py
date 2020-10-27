@@ -166,9 +166,12 @@ def read(filename):
     # components in the global system matrices
     for a,(etype,conn) in enumerate(zip(model.elements.types,
                                         model.elements.connectivities)):
+                                        
         model.elements.v0[a]  = geometry.volume(model.nodes[conn])
         model.elements.Tai[a] = fem.element[etype.lower()].indices_ai(conn)
+        
         aibj = fem.element[etype.lower()].indices_aibj(conn)
+        
         model.elements.Kai[a] = aibj[0]
         model.elements.Kbj[a] = aibj[1]
         
