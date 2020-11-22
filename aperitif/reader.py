@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created     on 2020-10-26 20:00
-Last Edited on 2020-10-26 20:00
+Last Edited on 2020-11-22 12:00
 
 @author: adtzlr
                            .__  __  .__  _____ 
@@ -125,10 +125,10 @@ def read(filename):
     # init dummy Table for constant-valued boundary Conditions
     tbl0 = readertools.init_const_table()
     
-    # add dummy Tables for "None,Fixed,Constant" bc's
+    # add dummy Tables for "None,Fixed,Constant"-labeled bc's
     keys = ['None','Fixed','Constant']
     for key in keys:
-        mode.tables[key] = tbl0
+        model.tables[key] = tbl0
 
     # create external displacements and forces functions from inputfile
     # -----------------------------------------------------------------
@@ -162,7 +162,7 @@ def read(filename):
     model.elements.Kbj = np.zeros(model.nelements,dtype=object)
     
     # calculate initial element volumes
-    # and positions of the elemental internal force and tangent stiffness
+    # and indices of the elemental internal force and tangent stiffness
     # components in the global system matrices
     for a,(etype,conn) in enumerate(zip(model.elements.types,
                                         model.elements.connectivities)):
