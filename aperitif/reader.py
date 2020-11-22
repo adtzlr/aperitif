@@ -38,8 +38,8 @@ import numpy as np
 
 from scipy.interpolate import interp1d
 
-import fem
-import geometry
+from aperitif import fem
+from aperitif import geometry
 
 import readertools
 
