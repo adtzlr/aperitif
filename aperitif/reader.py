@@ -69,7 +69,7 @@ def read(filename):
     Nonlinear Finite Elements Code for Structural Mechanics
     
     ''')
-    print('    Version:   2020.10')
+    print('    Version:   2020.12')
     print('    Author:    Dutzler A.')
     
     print('')
@@ -174,13 +174,6 @@ def read(filename):
         
         model.elements.Kai[a] = aibj[0]
         model.elements.Kbj[a] = aibj[1]
-        
-    # check if three-field-variational principle is used 
-    # in any element of the analysis
-    if any([etype.endswith('p') for etype in model.elements.types]):
-           print('\nThree-Field-Variational Principle:')
-           print(  '----------------------------------')
-           print('Π_int = ∫ψ dV + ∫mP(J^m-θ) dV\n')
         
     model.elements.Tai = np.concatenate(model.elements.Tai)
     model.elements.Kai = np.concatenate(model.elements.Kai)
