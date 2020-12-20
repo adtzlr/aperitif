@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created     on 2020-10-27 21:00
-Last Edited on 2020-10-27 21:00
+Last Edited on 2020-12-20 22:00
 @author: adtzlr
                            .__  __  .__  _____ 
 _____  ______   ___________|__|/  |_|__|/ ____\
@@ -90,13 +90,15 @@ def kinematics(x0,u,v0,element):
         kin.Jm = kin.v/v0
         
         # get modified deformation gradient
+        # and modified left cauchy-green deformation tensors
         kin.Fm = kin.Jm**(1/3)*kin.Fu
         kin.bm = kin.Jm**(2/3)*kin.bu
         
         # element-based mean shape function derivative
         kin.M = 1/v0 * np.sum(
                 np.array([dhdx*Jr*w
-                          for dhdx,Jr,w in zip(kin.dhdx,kin.Jr,
+                          for dhdx,Jr,w in zip(kin.dhdx,
+                                               kin.Jr,
                                                element.gauss.weights)]),
                               axis=0)
 
@@ -112,6 +114,7 @@ def stiffness_force(u,x0,v0,kinematics,element,material):
     IIt = mathlib.IIt[3]
     p4  = mathlib.P[3]
     
+    # element-based volume ratio
     Jm = kinematics.Jm
     
     # TODO
@@ -164,12 +167,6 @@ def stiffness_force(u,x0,v0,kinematics,element,material):
         # Jr  ... determinant of jacobian deformed-->natural configuration
         # w   ... integration point weight
         
-        # WORKAROUND
-        if abs(np.trace(bm)-3) < 1e-3:
-            fp = 1
-        else:
-            fp = 1#/material.K
-        
         tm,c4m,state_vars = umat(Fm,bm,Fu,bu,state_vars,material)
 
         tr_tm = tdot(tm,I,2)
@@ -196,13 +193,13 @@ def stiffness_force(u,x0,v0,kinematics,element,material):
             c4_dev += tdot( tdot(p4, c4m, 2), p4, 2)/J
 
         # geometric stiffness matrix
-        c4_geo = (tIt.transpose([1,0,3,2])/2-fp*p*IIt/2
-               + fp*p*(II-3/2*IIt))
+        c4_geo = (tIt.transpose([1,0,3,2])/2-p*IIt/2
+               + p*(II-3/2*IIt))
                   
         # absolute elasticity matrix
         a4 = c4_dev + c4_hyd + c4_geo
         a4t = a4[:ndim,:ndim,:ndim,:ndim].transpose([1,0,2,3])
-        stiffness += tdot( tdot(dhdx,a4t,1), dhdx.T, 1) * Jr*w# * fr
+        stiffness += tdot( tdot(dhdx,a4t,1), dhdx.T, 1) * Jr*w
         
     stress = np.array([mathlib.tovoigt(s) for s in sigma])
         
