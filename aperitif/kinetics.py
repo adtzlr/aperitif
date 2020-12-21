@@ -129,15 +129,12 @@ def stiffness_force(u,x0,v0,kinematics,element,material):
     
     Tm = []
     C4m = []
-    for ip, (s,J,Fm,bm,Fu,bu,dhdx,Jr,w) in enumerate(zip(
-            sigma,
+    for ip, (J,Fu,bu) in enumerate(zip(
             kinematics.J,
-            kinematics.Fm,
-            kinematics.bm,
             kinematics.Fu,
             kinematics.bu)):
         
-        tm,c4m,state_vars = umat(Fm,bm,Fu,bu,state_vars,material)
+        tm,c4m,state_vars = umat(Fu,bu,state_vars,material)
         Tm.append(tm)
         C4m.append(c4m)
         
@@ -167,7 +164,7 @@ def stiffness_force(u,x0,v0,kinematics,element,material):
         # Jr  ... determinant of jacobian deformed-->natural configuration
         # w   ... integration point weight
         
-        tm,c4m,state_vars = umat(Fm,bm,Fu,bu,state_vars,material)
+        tm,c4m,state_vars = umat(Fu,bu,state_vars,material)
 
         tr_tm = tdot(tm,I,2)
 
