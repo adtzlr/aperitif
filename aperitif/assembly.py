@@ -47,7 +47,10 @@ def system_force_stiffness(u,args):
     
     model,state = args
     
-    state.iteration = assemblage(u,model.nodes,model,iteration=state.iteration)
+    state.iteration = assemblage(u,
+                                 x0=model.nodes,
+                                 model=model,
+                                 iteration=state.iteration)
     r = state.iteration.T.toarray().reshape(model.nnodes,model.ndim)
     K = state.iteration.K
     
@@ -67,7 +70,7 @@ def assemblage(u,x0,model,iteration=None):
         iteration.kinematics = np.empty(model.nelements,
                                         dtype=object)
             
-    #@wrap_non_picklable_objects
+    #@wrap_non_picklable_objects #activate if error occurs
     @delayed
     def elem_results(zipped_input,parameters):
         '''Calculate nodal forces and tangent stiffnes per element'''
@@ -94,7 +97,7 @@ def assemblage(u,x0,model,iteration=None):
         Tij_e, Kij_e, stress_e = force.stiffness_force(u_e,x0_e,v0,kin,element,material)
         return Tij_e.flatten(), Kij_e.flatten()
     
-    num_cores = multiprocessing.cpu_count()//2
+    num_cores = multiprocessing.cpu_count()#//2
     #num_cores = 1
     inputs = zip(model.elements.types,
                  model.elements.connectivities,
