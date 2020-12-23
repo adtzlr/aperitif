@@ -27,19 +27,13 @@ THIS FILE IS WORK-IN-PROGRESS!!!
 """
 
 import numpy as np
-from numpy import trace as tr
 from numpy import tensordot as tdot
-
-import mathlib
-from mathlib import deviator as dev
-import geometry
-
-import constitution
 
 from types import SimpleNamespace
 
-from numpy.linalg import det,inv
-
+from aperitif import mathlib
+from aperitif import geometry
+from aperitif import constitution
 
 def stiffness_force(u,x0,v0,kinematics,element,material):
     

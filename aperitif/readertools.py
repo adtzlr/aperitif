@@ -30,6 +30,11 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+from types import SimpleNamespace
+
+import numpy as np
+from scipy.interpolate import interp1d
+
 def convert_material_parameters(mtype,mparam,mat):
     '''Convert material parameters to namespaces.'''
     p = mat.parameters
@@ -41,7 +46,7 @@ def convert_material_parameters(mtype,mparam,mat):
         #         m20k m21k m22k m23k
         #         m30k m31k m32k m33k]
         p.k  = np.array([mparam[1]]).reshape(1,1)
-        p.mu = np.array(mparam[2:18]).reshape(1,4,4)
+        p.μ = np.array(mparam[2:18]).reshape(1,4,4)
         
     if mtype.lower() == 'multi-k':
         # [K n mu_1 ... mu_n
@@ -50,11 +55,11 @@ def convert_material_parameters(mtype,mparam,mat):
         
         # init k,mu
         p.k = np.zeros(p.n)
-        p.mu = np.zeros((p.n,4,4))
+        p.μ = np.zeros(p.n)
         
         for n in range(p.n):
-            p.mu[n,1,0] = mparam[2+n    ]
-            p.k[n]      = mparam[2+n+p.n]
+            p.μ[n] = mparam[2+n    ]
+            p.k[n] = mparam[2+n+p.n]
         
     return mat
     
@@ -86,6 +91,9 @@ def create_materials(materialdata):
         mat.type = mtype
         mat.parameters = SimpleNamespace()
         mat.parameters.type  = mtype.lower()
+        
+        # TODO
+        mat.parameters.damage = False
         
         mat = convert_material_parameters(mtype,mparam,mat)
         materials[mlabel] = mat
@@ -160,7 +168,7 @@ def create_dofs(dofdata):
     # create active (=free) / inactive (=prescribed, controlled) dof mask
     dof = SimpleNamespace()
     dof.inactive = dofdata.drop(columns=['Id']).values.astype(bool)
-    dof.active = ~model.dof.inactive
+    dof.active = ~dof.inactive
     return dof
     
 def init_const_table():

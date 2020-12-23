@@ -31,8 +31,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import numpy as np
-import quadrature
-import shape
+from aperitif import quadrature
+from aperitif import shape
 #import geometry
 
 from types import SimpleNamespace

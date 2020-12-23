@@ -31,7 +31,7 @@ from numpy.linalg import det,inv
 
 from types import SimpleNamespace
 
-import geometry
+from aperitif import geometry
 
 
 
@@ -59,8 +59,8 @@ def kinematics(x0,u,v0,element):
     
     def extend(invF,Rr=1.0):
         'Extend deformation gradient to shape (3,3).'
-        invF3D = np.diag(np.array([1,1,Rr])
-        n,m = F.shape
+        invF3D = np.diag(np.array([1,1,Rr]))
+        n,m = invF.shape
         invF3D[:n,:m] = invF
         return invF3D
     

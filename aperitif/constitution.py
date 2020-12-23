@@ -113,7 +113,7 @@ def uhyperstretch(λ, material, statevars_old, full_output=True):
     μ, k = [material[key] for key in ('μ','k')]
     
     # hyperelastic strain energy density
-    ψ = μ/k*(np.sum(λ**k)-3)
+    ψ = np.sum(np.array([μ/k*((λa**k)-1) for λa in λ]))
     
     if full_output:
         return ψ, statevars_old
@@ -243,6 +243,14 @@ def uhyperiso(F, material, statevars_old=None, full_output=True):
         return η*ψ, statevars
     else:
         return η*ψ  
+
+ψ = uhyperiso
+dψdF    =    dF(ψ)
+d2ψdFdF = dF(dF(ψ))
+
+U = uhypervol
+dUdJ = dJ(U)
+d2UdJdJ = dJ(dJ(U))
 
 if __name__ == '__main__':
     # test script for material database

@@ -38,7 +38,7 @@ from types import SimpleNamespace as Struct
 from numpy.linalg import norm
 from scipy.sparse.linalg import spsolve as solve
 
-from assembly import system_force_stiffness as force
+from aperitif.assembly import system_force_stiffness as force
 
 def init_state(model):
     state = Struct()

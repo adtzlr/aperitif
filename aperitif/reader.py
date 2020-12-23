@@ -36,14 +36,12 @@ from functools import partial
 import pandas as pd
 import numpy as np
 
-from scipy.interpolate import interp1d
+from aperitif import fem
+from aperitif import geometry
 
-import fem
-import geometry
+from aperitif import readertools
 
-import readertools
-
-def read(filename):
+def load(filename):
     """
     Read an input file and return modeldata.
     

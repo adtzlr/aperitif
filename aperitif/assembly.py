@@ -38,15 +38,15 @@ from joblib import Parallel, delayed
 from joblib import parallel_backend
 from joblib import wrap_non_picklable_objects
 
-import fem
-import force
-
 from scipy import sparse
+
+from aperitif import fem
+from aperitif import kinematics
+from aperitif import kinetics
 
 def system_force_stiffness(u,args):
     
     model,state = args
-    
     state.iteration = assemblage(u,
                                  x0=model.nodes,
                                  model=model,
@@ -83,7 +83,7 @@ def assemblage(u,x0,model,iteration=None):
         
         # get element and material informations
         element = fem.element[elabel]
-        material = model.materials[mlabel].parameters
+        material = vars(model.materials[mlabel].parameters)
         
         # slice displacements and initial coordinates 
         # for current elemental nodes
@@ -91,14 +91,14 @@ def assemblage(u,x0,model,iteration=None):
         x0_e = x0[conn]
 
         # calculate kinematics
-        kin = force.kinematics(x0_e,u_e,v0,element)
+        kin = kinematics.kinematics(x0_e,u_e,v0,element)
             
         # calculate force, stiffness (and stress, strain, state var.)
-        Tij_e, Kij_e, stress_e = force.stiffness_force(u_e,x0_e,v0,kin,element,material)
+        Tij_e, Kij_e, stress_e = kinetics.stiffness_force(u_e,x0_e,v0,kin,element,material)
         return Tij_e.flatten(), Kij_e.flatten()
     
     num_cores = multiprocessing.cpu_count()#//2
-    #num_cores = 1
+    num_cores = 1
     inputs = zip(model.elements.types,
                  model.elements.connectivities,
                  model.elements.materiallabels,
