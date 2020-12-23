@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created     on 2020-10-26 20:00
-Last Edited on 2020-10-26 20:00
+Last Edited on 2020-11-22 12:00
 
 @author: adtzlr
                            .__  __  .__  _____ 
@@ -69,7 +69,7 @@ def read(filename):
     Nonlinear Finite Elements Code for Structural Mechanics
     
     ''')
-    print('    Version:   2020.10')
+    print('    Version:   2020.12')
     print('    Author:    Dutzler A.')
     
     print('')
@@ -125,10 +125,10 @@ def read(filename):
     # init dummy Table for constant-valued boundary Conditions
     tbl0 = readertools.init_const_table()
     
-    # add dummy Tables for "None,Fixed,Constant" bc's
+    # add dummy Tables for "None,Fixed,Constant"-labeled bc's
     keys = ['None','Fixed','Constant']
     for key in keys:
-        mode.tables[key] = tbl0
+        model.tables[key] = tbl0
 
     # create external displacements and forces functions from inputfile
     # -----------------------------------------------------------------
@@ -162,22 +162,18 @@ def read(filename):
     model.elements.Kbj = np.zeros(model.nelements,dtype=object)
     
     # calculate initial element volumes
-    # and positions of the elemental internal force and tangent stiffness
+    # and indices of the elemental internal force and tangent stiffness
     # components in the global system matrices
     for a,(etype,conn) in enumerate(zip(model.elements.types,
                                         model.elements.connectivities)):
+                                        
         model.elements.v0[a]  = geometry.volume(model.nodes[conn])
         model.elements.Tai[a] = fem.element[etype.lower()].indices_ai(conn)
+        
         aibj = fem.element[etype.lower()].indices_aibj(conn)
+        
         model.elements.Kai[a] = aibj[0]
         model.elements.Kbj[a] = aibj[1]
-        
-    # check if three-field-variational principle is used 
-    # in any element of the analysis
-    if any([etype.endswith('p') for etype in model.elements.types]):
-           print('\nThree-Field-Variational Principle:')
-           print(  '----------------------------------')
-           print('Π_int = ∫ψ dV + ∫mP(J^m-θ) dV\n')
         
     model.elements.Tai = np.concatenate(model.elements.Tai)
     model.elements.Kai = np.concatenate(model.elements.Kai)
