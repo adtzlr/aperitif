@@ -33,6 +33,8 @@ def identity_tensors(ndim):
     I   = np.eye(ndim)
     II  = np.tensordot(I,I,0)
     IIt = (II.transpose([0,2,1,3]) + II.transpose([0,3,2,1]))/2
+    #II  =  np.einsum('ij,kl',I,I)
+    #IIt = (np.einsum('il,kj',I,I)+np.einsum('ik,jl',I,I))/2
     P   = IIt-1/ndim*II
     return I, II, IIt, P
 
@@ -42,6 +44,8 @@ IIt = {}
 P   = {}
 I[2], II[2], IIt[2], P[2] = identity_tensors(ndim=2)
 I[3], II[3], IIt[3], P[3] = identity_tensors(ndim=3)
+
+I6 = np.append(np.repeat([1],3),np.repeat([0],3))
 
 
 def deviator(A):

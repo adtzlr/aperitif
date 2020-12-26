@@ -38,7 +38,7 @@ from scipy.interpolate import interp1d
 def convert_material_parameters(mtype,mparam,mat):
     '''Convert material parameters to namespaces.'''
     p = mat.parameters
-    p.K = np.array([mparam[0]]).reshape(1,1)
+    p.K = mparam[0]
 
     if mtype.lower() == 'invariants':
         # [bulk k ---- m01k m02k m03k 

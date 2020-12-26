@@ -40,7 +40,8 @@ def stiffness_force(u,x0,v0,kinematics,element,material):
     ndim = element.ndim
 
     # identity tensors and deviatoric projection tensor
-    I = np.eye(3)
+    II = mathlib.II[3]#, mathlib.IIt[3]
+    IIt = np.einsum('il,kj',np.eye(3),np.eye(3))
     
     # element-based volume ratio
     Jm = kinematics.Jm
@@ -58,12 +59,15 @@ def stiffness_force(u,x0,v0,kinematics,element,material):
     
     # pre-integrated part of element stiffness matrix
     M = kinematics.M
-    stiffness  = 2*dpdJ*v0*np.tensordot(M,M.T,0)
+    stiffness  = dpdJ*v0*np.tensordot(M,M.T,0)
     
-    II  = np.einsum('ij,kl',I,I)
-    IIt = np.einsum('il,jk',I,I)
+    # pre-integrated (hydrostatic) part of cauchy stress
+    # and its contribution to the (nodal) internal forces
+    s6 = np.tile(p*mathlib.I6,(element.npgauss,1))
+    internal_force = p*v0*M
     
-    stress = []
+    # pre-defined normalized hydrostatic part of elasticity tensor
+    a4p = II-IIt
 
     for ip, (J,F,dhdx,Jr,w) in enumerate(zip(
             kinematics.J,
@@ -71,22 +75,23 @@ def stiffness_force(u,x0,v0,kinematics,element,material):
             kinematics.dhdx,
             kinematics.Jr,
             element.gauss.weights)):
-        
+
         ψ, state_vars = constitution.ψ(      F,material,state_vars_old)
-        P             = constitution.dψdF(   F,material,state_vars,full_output=False)
-        A4            = constitution.d2ψdFdF(F,material,state_vars,full_output=False)
+        PDev          = constitution.dψdF(   F,material,state_vars,
+                                             full_output=False)
+        A4Dev         = constitution.d2ψdFdF(F,material,state_vars,
+                                             full_output=False)
+
+        sdev  = np.einsum('jJ,iJ',F,PDev)/J
+        a4dev = np.einsum('jJ,lL,iJkL',F,F,A4Dev)/J
         
-        sdev  = np.einsum('jJ,iJ',F,P)/J
-        a4dev = np.einsum('jJ,lL,iJkL',F,F,A4)/J
+        s6[ip] += mathlib.tovoigt(sdev)
         
-        s = sdev+p*I
-        stress.append(mathlib.tovoigt(s))
+        a4 = a4dev + p*a4p
         
-        a4 = a4dev+p*(II-IIt)
-        
-        internal_force += tdot(dhdx,s[:ndim,:ndim],1)*Jr*w
+        internal_force += tdot(dhdx,sdev[:ndim,:ndim],1)*Jr*w
         
         at4 = a4[:ndim,:ndim,:ndim,:ndim].transpose([1,0,2,3])
         stiffness += tdot( tdot(dhdx,at4,1), dhdx.T, 1) * Jr*w
         
-    return internal_force, stiffness.transpose([0,1,3,2]), np.array(stress)
+    return internal_force, stiffness.transpose([0,1,3,2]), s6

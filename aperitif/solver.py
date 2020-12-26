@@ -120,7 +120,7 @@ def job(model,state=None):
                 duh = np.zeros_like(uh)
                 duh[dof1] = du
                 duh[dof0] = duG
-                
+
                 uh = uh + duh
                 
                 state.iteration = None

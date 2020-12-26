@@ -57,12 +57,16 @@ def kinematics(x0,u,v0,element):
         r = np.array([ x_ip[1] for  x_ip in (x0  ).T@h])
         Rr = R/r
     
-    def extend(invF,Rr=1.0):
+    def extend(F,rR=1.0):
         'Extend deformation gradient to shape (3,3).'
-        invF3D = np.diag(np.array([1,1,Rr]))
-        n,m = invF.shape
-        invF3D[:n,:m] = invF
-        return invF3D
+        F3D = np.diag(np.array([1,1,rR]))
+        n,m = F.shape
+        F3D[:n,:m] = F
+        return F3D
+        #if np.allclose(F3D,np.eye(3)):
+        #    return F3D + np.finfo(float).eps*(np.random.rand(3,3)-0.5)*10
+        #else:
+        #    return F3D
     
     # init kinematics struct and evalutate jacobian Jr, 
     # deformation gradient F as well as J=det(F) at integration points
@@ -72,7 +76,7 @@ def kinematics(x0,u,v0,element):
     kin.Jr   = np.array([det(dxdr_ip) for dxdr_ip in dxdr])
     
     if element.axisymmetric.flag:
-        kin.F = np.array([extend(inv(I-dudx_ip),Rr_ip) 
+        kin.F = np.array([inv(extend(I-dudx_ip,Rr_ip))
                           for dudx_ip, Rr_ip in zip(dudx,Rr)])
     else:
         kin.F = np.array([extend(inv(I-dudx_ip)) 

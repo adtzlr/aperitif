@@ -224,14 +224,23 @@ def uhyperiso(F, material, statevars_old=None, full_output=True):
     '''
     
     # distortional part of right cauchy-green deformation tensor
+    
     J = det(F)
     C = F.T@F
-    
-    λC, v = np.linalg.eigh(C)
-    λiso = J**(-1/3)*np.sqrt(λC)
+
+    if np.allclose(F,np.eye(3)):
+        λC = np.diag(C)
+    else:
+        λC = np.linalg.eigh(C)[0]
+        
+    λ = np.sqrt(λC)
+    λiso = J**(-1/3)*λ
     
     # hyperelastic strain energy density
     ψ, statevars = uhyperstretch(λiso, material, statevars_old)
+    
+    #ψ = 1/2*(np.trace(C)-3)
+    #statevars = statevars_old
     
     if material['damage']:
         η, statevars = udamage(ψ, material, statevars)
@@ -245,12 +254,12 @@ def uhyperiso(F, material, statevars_old=None, full_output=True):
         return η*ψ  
 
 ψ = uhyperiso
-dψdF    =    dF(ψ)
-d2ψdFdF = dF(dF(ψ))
+dψdF    =    dF(uhyperiso)
+d2ψdFdF = dF(dF(uhyperiso))
 
 U = uhypervol
-dUdJ = dJ(U)
-d2UdJdJ = dJ(dJ(U))
+dUdJ =       dJ(uhypervol)
+d2UdJdJ = dJ(dJ(uhypervol))
 
 if __name__ == '__main__':
     # test script for material database
@@ -258,11 +267,12 @@ if __name__ == '__main__':
     # material parameters
     mat = dict(μ=1, k=1.3, K=5000, 
                r=3, m=1, β=0, 
-               damage=True)
+               damage=False)
     
     # (fixed) random deformation gradient
     np.random.seed(1056)
     F = np.random.rand(3,3)
+    F = np.eye(3)
     
     # isochoric strain energy density function and partial derivatives
     ψ = uhyperiso

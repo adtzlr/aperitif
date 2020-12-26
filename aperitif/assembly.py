@@ -82,12 +82,12 @@ def assemblage(u,x0,model,iteration=None):
         model,u,x0 = parameters #,fem_e,force_e
         
         # get element and material informations
-        element = fem.element[elabel]
+        element  = fem.element[elabel]
         material = vars(model.materials[mlabel].parameters)
         
         # slice displacements and initial coordinates 
         # for current elemental nodes
-        u_e = u[conn]
+        u_e  =  u[conn]
         x0_e = x0[conn]
 
         # calculate kinematics
