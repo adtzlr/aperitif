@@ -27,6 +27,23 @@ THIS FILE IS WORK-IN-PROGRESS!!!
 
 import numpy as np
 
+def eigvals(C):
+    
+    I1 = np.trace(C)
+    I2 = (I1**2-np.trace(C@C))/2
+    
+    k = np.sqrt(I1**2-3*I2)
+    
+    tol = 1e-6
+    if k < tol:
+        lam = np.ones(3)*I1/3
+    else:
+        a = np.arange(3)
+        theta = np.arccos((2*I1**3-9*I1*I2+27)/(2*k**3))
+        lam = (I1+2*k*np.cos((theta+2*np.pi*(a))/3))/3
+    
+    return lam
+
 def identity_tensors(ndim):
     '''Helper Function for the generation of 
     identity and deviatoric projection tensors.'''

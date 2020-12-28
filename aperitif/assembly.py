@@ -52,9 +52,10 @@ def system_force_stiffness(u,args):
                                  model=model,
                                  iteration=state.iteration)
     r = state.iteration.T.toarray().reshape(model.nnodes,model.ndim)
-    K = state.iteration.K
+    Kd = state.iteration.Kd
+    Kp = state.iteration.Kp
     
-    return r, K, state
+    return r, Kd, Kp, state
     
 
 def assemblage(u,x0,model,iteration=None):
@@ -94,11 +95,11 @@ def assemblage(u,x0,model,iteration=None):
         kin = kinematics.kinematics(x0_e,u_e,v0,element)
             
         # calculate force, stiffness (and stress, strain, state var.)
-        Tij_e, Kij_e, stress_e = kinetics.stiffness_force(u_e,x0_e,v0,kin,element,material)
-        return Tij_e.flatten(), Kij_e.flatten()
+        Tij_e, Kijd_e, Kijp_e, stress_e = kinetics.stiffness_force(u_e,x0_e,v0,kin,element,material)
+        return Tij_e.flatten(), Kijd_e.flatten(), Kijp_e.flatten()
     
     num_cores = multiprocessing.cpu_count()#//2
-    num_cores = 1
+    #num_cores = 1
     inputs = zip(model.elements.types,
                  model.elements.connectivities,
                  model.elements.materiallabels,
@@ -112,15 +113,20 @@ def assemblage(u,x0,model,iteration=None):
     Kbj = model.elements.Kbj
     
     Tij = np.array([item[0] for item in results]).flatten()
-    Kij = np.array([item[1] for item in results]).flatten()
+    Kijd = np.array([item[1] for item in results]).flatten()
+    Kijp = np.array([item[2] for item in results]).flatten()
 
     T = sparse.csr_matrix((Tij, (model.elements.Tai,np.zeros_like(Tai))),
                            shape=(model.ndof,1))
     
-    K = sparse.csr_matrix((Kij, (Kai,Kbj)),
+    Kd = sparse.csr_matrix((Kijd, (Kai,Kbj)),
+                           shape=(model.ndof,model.ndof))
+    
+    Kp = sparse.csr_matrix((Kijp, (Kai,Kbj)),
                            shape=(model.ndof,model.ndof))
         
     iteration.T = T
-    iteration.K = K
+    iteration.Kd = Kd
+    iteration.Kp = Kp
     
     return iteration

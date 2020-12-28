@@ -52,9 +52,9 @@ def kinematics(x0,u,v0,element):
     dudx = u.T@dhdx
     
     if element.axisymmetric.flag:
-        # get radius ratio at integration points
-        R = np.array([x0_ip[1] for x0_ip in (x0+u).T@h])
-        r = np.array([ x_ip[1] for  x_ip in (x0  ).T@h])
+        # get radius ratio at integration points - coordinates (z,r,theta)
+        R = np.array([x0_ip[1] for x0_ip in (x0  ).T@h])
+        r = np.array([ x_ip[1] for  x_ip in (x0+u).T@h])
         Rr = R/r
     
     def extend(F,rR=1.0):
@@ -63,10 +63,6 @@ def kinematics(x0,u,v0,element):
         n,m = F.shape
         F3D[:n,:m] = F
         return F3D
-        #if np.allclose(F3D,np.eye(3)):
-        #    return F3D + np.finfo(float).eps*(np.random.rand(3,3)-0.5)*10
-        #else:
-        #    return F3D
     
     # init kinematics struct and evalutate jacobian Jr, 
     # deformation gradient F as well as J=det(F) at integration points
@@ -79,18 +75,26 @@ def kinematics(x0,u,v0,element):
         kin.F = np.array([inv(extend(I-dudx_ip,Rr_ip))
                           for dudx_ip, Rr_ip in zip(dudx,Rr)])
     else:
-        kin.F = np.array([extend(inv(I-dudx_ip)) 
+        kin.F = np.array([inv(extend(I-dudx_ip,1.0)) 
                           for dudx_ip in dudx])
                           
-    kin.J    = np.array([det(F) for F in kin.F])
+    kin.J = np.array([det(F) for F in kin.F])
 
     # get element volume ratio
     kin.v = geometry.volume(x0+u)
     kin.Jm = kin.v/v0
     
     # element-based mean shape function derivative
-    kin.M = 1/v0 * np.sum(
+    kin.M = 1/kin.v * np.sum(
             np.array([dhdx*Jr*w
+                      for dhdx,Jr,w in zip(kin.dhdx,
+                                           kin.Jr,
+                                           element.gauss.weights)]),
+                          axis=0)
+    kin.MM = np.tensordot(kin.M,kin.M,0)
+    
+    kin.H4 = 1/kin.v * np.sum(
+            np.array([np.tensordot(dhdx,dhdx,0)*Jr*w
                       for dhdx,Jr,w in zip(kin.dhdx,
                                            kin.Jr,
                                            element.gauss.weights)]),

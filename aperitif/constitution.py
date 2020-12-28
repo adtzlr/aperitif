@@ -29,7 +29,7 @@ from autograd import numpy as np
 from autograd.numpy.linalg import det
 from autograd.numpy.linalg import eigh
 from autograd import jacobian as dF
-from autograd import jacobian as dJ
+from autograd import grad as dJ
 
 def udamage(ψ, material, statevars_old, full_output=True):
     r'''Isotropic strain energy density - based damage function.
@@ -161,6 +161,7 @@ def uhypervol(J, material, statevars_old=None, full_output=True):
     K = material['K']
     
     U = K/2*(J-1)**2
+    #U = 9*K/2*(J**(1/3)-1)**2
     
     # output volumetric strain energy density
     if full_output:
@@ -227,19 +228,13 @@ def uhyperiso(F, material, statevars_old=None, full_output=True):
     
     J = det(F)
     C = F.T@F
+    Ciso = J**(-2/3)*C
 
-    if np.allclose(F,np.eye(3)):
-        λC = np.diag(C)
-    else:
-        λC = np.linalg.eigh(C)[0]
-        
-    λ = np.sqrt(λC)
-    λiso = J**(-1/3)*λ
+    λiso = np.sqrt(eigvals(Ciso))
     
     # hyperelastic strain energy density
     ψ, statevars = uhyperstretch(λiso, material, statevars_old)
-    
-    #ψ = 1/2*(np.trace(C)-3)
+    #ψ = ψ+1e-12/2*(J-1)**2
     #statevars = statevars_old
     
     if material['damage']:
@@ -252,6 +247,23 @@ def uhyperiso(F, material, statevars_old=None, full_output=True):
         return η*ψ, statevars
     else:
         return η*ψ  
+    
+def eigvals(C):
+    
+    I1 = np.trace(C)
+    I2 = (I1**2-np.trace(C@C))/2
+    
+    k = I1**2-3*I2
+    
+    tol = 1e-6
+    if abs(k) < tol:
+        lam3 = np.ones(3)*I1
+    else:
+        a = np.arange(3)
+        theta = np.arccos((2*I1**3-9*I1*I2+27)/(2*k**(3/2)))
+        lam3 = I1+2*k**(1/2)*np.cos((theta+2*np.pi*(a))/3)
+    
+    return lam3/3
 
 ψ = uhyperiso
 dψdF    =    dF(uhyperiso)
@@ -272,7 +284,11 @@ if __name__ == '__main__':
     # (fixed) random deformation gradient
     np.random.seed(1056)
     F = np.random.rand(3,3)
-    F = np.eye(3)
+    #F = np.eye(3)
+    
+    #F = np.array([[1.30000000e+00, 0.00000000e+00, 9.04184032e-17],
+    #              [0.00000000e+00, 1.00000000e+00, 0.00000000e+00],
+    #              [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
     
     # isochoric strain energy density function and partial derivatives
     ψ = uhyperiso

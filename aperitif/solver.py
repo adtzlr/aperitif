@@ -96,16 +96,17 @@ def job(model,state=None):
             rh = state.rh.copy()
             
             u, uG = uh[dof1], uh[dof0]
-            r, rG = rh[dof1], rh[dof0]
             
             state.converged = False
-            rh, KT, state = force(uh, (model,state))
+            rh, KTd, KTp, state = force(uh, (model,state))
+            
+            r, rG = rh[dof1], rh[dof0]
 
             for n in range(lcase.nmax):
                 
                 #KT = KT.toarray()
-                KT_11 = KT[dof1.flatten(),:][:,dof1.flatten()]
-                KT_10 = KT[dof1.flatten(),:][:,dof0.flatten()]
+                KT_11 = (KTd+KTp)[dof1.flatten(),:][:,dof1.flatten()]
+                KT_10 = (KTd+KTp)[dof1.flatten(),:][:,dof0.flatten()]
                 #KT_01 = KT[dof0.flatten(),:][:,dof1.flatten()]
                 #KT_00 = KT[dof0.flatten(),:][:,dof0.flatten()]
                 
@@ -115,7 +116,7 @@ def job(model,state=None):
                 duG = (uG_k[dof0] - uG)
                 #du = KT_11i@(-r+f_k[dof1]-KT_10.dot(duG))
                 du  = solve(KT_11, -r+f_k[dof1]-KT_10.dot(duG),
-                            use_umfpack=True)
+                            )#use_umfpack=True
                 
                 duh = np.zeros_like(uh)
                 duh[dof1] = du
@@ -124,7 +125,7 @@ def job(model,state=None):
                 uh = uh + duh
                 
                 state.iteration = None
-                rh, KT, state = force(uh, (model,state))
+                rh, KTd, KTp, state = force(uh, (model,state))
                 
                 u, uG = uh[dof1], uh[dof0]
                 r, rG = rh[dof1], rh[dof0]
@@ -149,7 +150,7 @@ def job(model,state=None):
                     state.uGh = uG_k
                     state.t = t
                     state.lcase = lcase
-                    state.KT = KT
+                    state.KT = KTd+KTp
                     break
             
             if state.converged:
