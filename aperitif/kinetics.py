@@ -33,37 +33,48 @@ from types import SimpleNamespace
 
 from aperitif import mathlib
 from aperitif import geometry
-from aperitif import constitution
+#from aperitif import constitution
 
-def stiffness_force(u,x0,v0,kinematics,element,material):
+def stiffness_force(u,x0,v0,kinematics,element,material,constdb):
     
-    ndim = element.ndim
+    nnodes = element.nnodes
+    ndim   = element.ndim
 
-    # element-based volume ratio
-    Jm = kinematics.Jm
-    v = kinematics.v
-    
     # TODO
     state_vars_old = None
     
-    # volumetric strain energy density
-    #U    = constitution.U(   Jm,material,full_output=False)
-    p    = constitution.dUdJ(   Jm,material,full_output=False)
-    dpdJ = constitution.d2UdJdJ(Jm,material,full_output=False)
+    constmat = constdb[material.type]
     
-    # pre-integrated helper functions (mean shape function derivative)
-    M, MM  = kinematics.M, kinematics.MM
+    if element.shape.mean:
+        
+        # element-based volume ratio
+        Jm = kinematics.Jm
+        v = kinematics.v
 
-    a4p = kinematics.H4-np.einsum('ijkl->ilkj',kinematics.H4)
-
-    # pre-integrated (hydrostatic) part of cauchy stress
-    # and its contribution to the (nodal) internal forces
-    s6 = np.tile(p*mathlib.I6,(element.npgauss,1))
+        # volumetric strain energy density
+        #U    = constitution.U(   Jm,material,full_output=False)
+        p    = constmat.dUdJ(   Jm,material,full_output=False)
+        dpdJ = constmat.d2UdJdJ(Jm,material,full_output=False)
     
-    # internal force and stiffness (pre-evaluated parts)
-    internal_force = p*v*M
-    stiffness_p    = dpdJ*Jm*v*MM
-    stiffness_d    = p*v*a4p
+        # pre-integrated helper functions (mean shape function derivative)
+        M, MM  = kinematics.M, kinematics.MM
+    
+        # pre-defined normalized pressure part of elasticity matrix
+        HH = kinematics.H4-np.einsum('ijkl->ilkj',kinematics.H4)
+
+        # pre-integrated (hydrostatic) part of cauchy stress
+        # and its contribution to the (nodal) internal forces
+        s6 = np.tile(p*mathlib.I6,(element.npgauss,1))
+    
+        # internal force and stiffness (pre-evaluated parts) 
+        internal_force = p*v*M
+        stiffness_p    = dpdJ*Jm*v*MM
+        stiffness_d    = p*v*HH
+    else:
+        s6 = np.tile(np.zeros(6),(element.npgauss,1))
+        internal_force = np.zeros((nnodes,ndim))
+        stiffness_d    = np.zeros((nnodes,ndim,nnodes,ndim))
+        stiffness_p    = np.zeros((nnodes,ndim,nnodes,ndim))
 
     for ip, (J,F,dhdx,Jr,w) in enumerate(zip(
             kinematics.J,
@@ -72,10 +83,10 @@ def stiffness_force(u,x0,v0,kinematics,element,material):
             kinematics.Jr,
             element.gauss.weights)):
 
-        ψ, state_vars = constitution.ψ(      F,material,state_vars_old)
-        PDev          = constitution.dψdF(   F,material,state_vars,
+        ψ, state_vars = constmat.ψ(      F,material,state_vars_old)
+        PDev          = constmat.dψdF(   F,material,state_vars,
                                              full_output=False)
-        A4Dev         = constitution.d2ψdFdF(F,material,state_vars,
+        A4Dev         = constmat.d2ψdFdF(F,material,state_vars,
                                              full_output=False)
 
         sdev  = np.einsum('jJ,iJ->ij',F,PDev)/J

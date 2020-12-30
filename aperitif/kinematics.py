@@ -33,8 +33,6 @@ from types import SimpleNamespace
 
 from aperitif import geometry
 
-
-
 def kinematics(x0,u,v0,element):
     "Create kinematic quantities with displacements."
     
@@ -80,24 +78,25 @@ def kinematics(x0,u,v0,element):
                           
     kin.J = np.array([det(F) for F in kin.F])
 
-    # get element volume ratio
-    kin.v = geometry.volume(x0+u)
-    kin.Jm = kin.v/v0
-    
     # element-based mean shape function derivative
-    kin.M = 1/kin.v * np.sum(
-            np.array([dhdx*Jr*w
-                      for dhdx,Jr,w in zip(kin.dhdx,
-                                           kin.Jr,
-                                           element.gauss.weights)]),
-                          axis=0)
-    kin.MM = np.tensordot(kin.M,kin.M,0)
+    if element.shape.mean:
+        # get element volume ratio
+        kin.v = geometry.volume(x0+u)
+        kin.Jm = kin.v/v0
+        kin.M = 1/kin.v * np.sum(
+                np.array([dhdx*Jr*w
+                          for dhdx,Jr,w in zip(kin.dhdx,
+                                               kin.Jr,
+                                               element.gauss.weights)]),
+                              axis=0)
     
-    kin.H4 = 1/kin.v * np.sum(
-            np.array([np.tensordot(dhdx,dhdx,0)*Jr*w
-                      for dhdx,Jr,w in zip(kin.dhdx,
-                                           kin.Jr,
-                                           element.gauss.weights)]),
-                          axis=0)
+        kin.MM = np.tensordot(kin.M,kin.M,0)
+    
+        kin.H4 = 1/kin.v * np.sum(
+                np.array([np.tensordot(dhdx,dhdx,0)*Jr*w
+                          for dhdx,Jr,w in zip(kin.dhdx,
+                                               kin.Jr,
+                                               element.gauss.weights)]),
+                              axis=0)
 
     return kin

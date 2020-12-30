@@ -38,25 +38,23 @@ from scipy.interpolate import interp1d
 def convert_material_parameters(mtype,mparam,mat):
     '''Convert material parameters to namespaces.'''
     p = mat.parameters
-    p.K = mparam[0]
+    
+    if 'user' in mtype.lower():
+        p.all = mparam
 
-    if mtype.lower() == 'invariants':
-        # [bulk k ---- m01k m02k m03k 
-        #         m10k m11k m12k m13k 
-        #         m20k m21k m22k m23k
-        #         m30k m31k m32k m33k]
-        p.k  = np.array([mparam[1]]).reshape(1,1)
-        p.μ = np.array(mparam[2:18]).reshape(1,4,4)
+    if mtype.lower() == 'hyp-iso-inv':
+        p.K = mparam[0]
+        p.C10 = mparam[1]
+        p.C01 = mparam[2]
+        p.C11 = mparam[3]
+        p.C20 = mparam[4]
+        p.C30 = mparam[5]
         
-    if mtype.lower() == 'multi-k':
-        # [K n mu_1 ... mu_n
-        #       k_1 ...  k_n]
+    if mtype.lower() == 'hyp-iso-str-k':
+        p.K = mparam[0]
         p.n = int(mparam[1])
-        
-        # init k,mu
         p.k = np.zeros(p.n)
         p.μ = np.zeros(p.n)
-        
         for n in range(p.n):
             p.μ[n] = mparam[2+n    ]
             p.k[n] = mparam[2+n+p.n]
@@ -88,12 +86,12 @@ def create_materials(materialdata):
         # create material as struct and save it in the materials-dictionary
         mat = SimpleNamespace()
         mat.label = mlabel
-        mat.type = mtype
+        mat.type = mtype.lower()
         mat.parameters = SimpleNamespace()
         mat.parameters.type  = mtype.lower()
         
         # TODO
-        mat.parameters.damage = False
+        mat.damage = False
         
         mat = convert_material_parameters(mtype,mparam,mat)
         materials[mlabel] = mat

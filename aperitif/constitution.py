@@ -25,11 +25,18 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 THIS FILE IS WORK-IN-PROGRESS!!!
 """
 
+from types import SimpleNamespace
+from functools import partial
+
 from autograd import numpy as np
 from autograd.numpy.linalg import det
 from autograd.numpy.linalg import eigh
 from autograd import jacobian as dF
 from autograd import grad as dJ
+
+def init():
+    empty = SimpleNamespace()
+    return empty
 
 def udamage(ψ, material, statevars_old, full_output=True):
     r'''Isotropic strain energy density - based damage function.
@@ -62,7 +69,7 @@ def udamage(ψ, material, statevars_old, full_output=True):
     '''
     
     # extract material parameters from dict
-    r, m, β = [material[key] for key in ('r','m','β')] # mullins
+    p = material.parameters
     
     # update max. strain energy density
     ψmax_old = statevars_old[0]
@@ -72,14 +79,58 @@ def udamage(ψ, material, statevars_old, full_output=True):
     statevars = np.array([ψmax])
     
     # mullins-damage (ogden-roxburgh) isotropic evolution law
-    η = 1-1/r*np.tanh((ψmax-ψ)/(m+β*ψmax))
+    η = 1-1/p.r*np.tanh((ψmax-ψ)/(p.m+p.β*ψmax))
     
     if full_output:
         return η, statevars
     else:
         return η
 
-def uhyperstretch(λ, material, statevars_old, full_output=True):
+def uhyperinvariants(invariants, material, statevars_old, full_output=True):
+    r'''Invariants based isotropic hyperelastic material model.
+    
+    Parameters
+    ----------
+    invariants : array
+        invariants of C
+    material : dict
+        dict containing material parameters
+    statevars_old : array
+        old state variables
+    full_output : bool, optional
+        flag for new state variables output (default is True)
+        
+    Returns
+    -------
+    ψ : float
+        strain energy density per unit undeformed volume
+    statevars : array, optional
+        array of new state variables (only returned if optional input 
+        full_output is True)
+    
+    Theory
+    ------
+    invariants hyperelastic material model:
+        
+    :math:`\psi = ...`
+    
+    '''
+    
+    I1,I2,I3 = invariants
+    
+    # extract material parameters from dict
+    p = material.parameters
+    
+    # hyperelastic strain energy density
+    ψ = p.C10*(I1-3)    + p.C01*(I2-3) + p.C11*(I1-3)*(I2-3) \
+      + p.C20*(I1-3)**2 + p.C30*(I1-3)
+    
+    if full_output:
+        return ψ, statevars_old
+    else:
+        return ψ
+
+def uhyperstretchk(λ, material, statevars_old, full_output=True):
     r'''Principal stretch based isotropic hyperelastic material model.
     
     Parameters
@@ -110,7 +161,8 @@ def uhyperstretch(λ, material, statevars_old, full_output=True):
     '''
     
     # extract material parameters from dict
-    μ, k = [material[key] for key in ('μ','k')]
+    μ = material.parameters.μ
+    k = material.parameters.k
     
     # hyperelastic strain energy density
     ψ = np.sum(np.array([μ/k*((λa**k)-1) for λa in λ]))
@@ -158,7 +210,7 @@ def uhypervol(J, material, statevars_old=None, full_output=True):
     :math:`U(J)=\frac{K}{2}(J-1)^2`
     '''
     
-    K = material['K']
+    K = material.parameters.K
     
     U = K/2*(J-1)**2
     #U = 9*K/2*(J**(1/3)-1)**2
@@ -169,7 +221,8 @@ def uhypervol(J, material, statevars_old=None, full_output=True):
     else:
         return U
     
-def uhyperiso(F, material, statevars_old=None, full_output=True):
+def uhyperiso(F, material, statevars_old=None, full_output=True,
+              category='stretch', upsi=uhyperstretchk):
     r'''(Pseudo-elastic) isotropic strain energy density functional 
     per unit undeformed volume for hyperelastic materials with optional
     isotropic damage evolution.
@@ -229,15 +282,24 @@ def uhyperiso(F, material, statevars_old=None, full_output=True):
     J = det(F)
     C = F.T@F
     Ciso = J**(-2/3)*C
+    I1iso = np.trace(Ciso)
+    I2iso = (I1iso**2-np.trace(Ciso@Ciso))/2
 
-    λiso = np.sqrt(eigvals(Ciso))
+    if category == 'stretch':
+        λiso = np.sqrt(eigvals(Ciso,I1iso,I2iso,1))
+        #λiso = np.sqrt(np.linalg.eigh(Ciso)[0])
     
-    # hyperelastic strain energy density
-    ψ, statevars = uhyperstretch(λiso, material, statevars_old)
-    #ψ = ψ+1e-12/2*(J-1)**2
+        # hyperelastic strain energy density
+        ψ, statevars = upsi(λiso, material, statevars_old)
+
+    elif category == 'invariants':
+        inviso = np.array([I1iso,I2iso,1])
+        
+        # hyperelastic strain energy density
+        ψ, statevars = upsi(inviso, material, statevars_old)
     #statevars = statevars_old
     
-    if material['damage']:
+    if material.damage:
         η, statevars = udamage(ψ, material, statevars)
     else:
         η = 1
@@ -248,10 +310,10 @@ def uhyperiso(F, material, statevars_old=None, full_output=True):
     else:
         return η*ψ  
     
-def eigvals(C):
+def eigvals(C,I1,I2,I3):
     
-    I1 = np.trace(C)
-    I2 = (I1**2-np.trace(C@C))/2
+    #I1 = np.trace(C)
+    #I2 = (I1**2-np.trace(C@C))/2
     
     k = I1**2-3*I2
     
@@ -260,18 +322,34 @@ def eigvals(C):
         lam3 = np.ones(3)*I1
     else:
         a = np.arange(3)
-        theta = np.arccos((2*I1**3-9*I1*I2+27)/(2*k**(3/2)))
+        theta = np.arccos((2*I1**3-9*I1*I2+27*I3)/(2*k**(3/2)))
         lam3 = I1+2*k**(1/2)*np.cos((theta+2*np.pi*(a))/3)
     
     return lam3/3
 
-ψ = uhyperiso
-dψdF    =    dF(uhyperiso)
-d2ψdFdF = dF(dF(uhyperiso))
+# 'H'yperelastic 'I'sorochic 'S'tretch 'K'-formulation
+hisk         = SimpleNamespace()
+hisk.upsi    = uhyperstretchk
+hisk.ψ       = partial(uhyperiso,upsi=hisk.upsi,category='stretch')
+hisk.dψdF    =    dF(hisk.ψ)
+hisk.d2ψdFdF = dF(dF(hisk.ψ))
+hisk.U       = uhypervol
+hisk.dUdJ    =    dJ(hisk.U)
+hisk.d2UdJdJ = dJ(dJ(hisk.U))
 
-U = uhypervol
-dUdJ =       dJ(uhypervol)
-d2UdJdJ = dJ(dJ(uhypervol))
+# 'H'yperelastic 'I'sorochic 'I'nvariants 'T'.O.D.
+hiit         = SimpleNamespace()
+hiit.upsi    = uhyperinvariants
+hiit.ψ       = partial(uhyperiso,upsi=hiit.upsi,category='invariants')
+hiit.dψdF    =    dF(hiit.ψ)
+hiit.d2ψdFdF = dF(dF(hiit.ψ))
+hiit.U       = uhypervol
+hiit.dUdJ    =    dJ(hiit.U)
+hiit.d2UdJdJ = dJ(dJ(hiit.U))
+
+database = {'hyp-iso-str-k': hisk, 
+            'hyp-iso-inv': hiit,
+           }
 
 if __name__ == '__main__':
     # test script for material database

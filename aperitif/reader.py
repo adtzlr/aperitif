@@ -40,6 +40,7 @@ from aperitif import fem
 from aperitif import geometry
 
 from aperitif import readertools
+from aperitif import constitution
 
 def load(filename):
     """
@@ -94,12 +95,13 @@ def load(filename):
     print('Inputfile:', model.filename)
 
     # create material, table, boundary, dof and loadcase library from inputfile
-    model.elements   = readertools.create_elements(elementdata)
-    model.materials  = readertools.create_materials(materialdata)
-    model.tables     = readertools.create_tables(tabledata)
-    model.boundaries = readertools.create_boundary_conditions(bcdata)
-    model.dof        = readertools.create_dofs(dofdata)
-    model.loadcases  = readertools.create_loadcases(lcdata)
+    model.elements     = readertools.create_elements(elementdata)
+    model.materials    = readertools.create_materials(materialdata)
+    model.tables       = readertools.create_tables(tabledata)
+    model.boundaries   = readertools.create_boundary_conditions(bcdata)
+    model.dof          = readertools.create_dofs(dofdata)
+    model.loadcases    = readertools.create_loadcases(lcdata)
+    model.constdb      = constitution.database
         
     # get nodal coordinates
     model.nodes = df['Nodes'].drop(columns=['Id']).values.astype(float)
@@ -166,9 +168,9 @@ def load(filename):
                                         model.elements.connectivities)):
                                         
         model.elements.v0[a]  = geometry.volume(model.nodes[conn])
-        model.elements.Tai[a] = fem.element[etype.lower()].indices_ai(conn)
+        model.elements.Tai[a] = fem.element[etype.lower()].ai(conn)
         
-        aibj = fem.element[etype.lower()].indices_aibj(conn)
+        aibj = fem.element[etype.lower()].aibj(conn)
         
         model.elements.Kai[a] = aibj[0]
         model.elements.Kbj[a] = aibj[1]

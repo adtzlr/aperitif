@@ -84,7 +84,8 @@ def assemblage(u,x0,model,iteration=None):
         
         # get element and material informations
         element  = fem.element[elabel]
-        material = vars(model.materials[mlabel].parameters)
+        material = model.materials[mlabel]
+        constdb  = model.constdb
         
         # slice displacements and initial coordinates 
         # for current elemental nodes
@@ -95,7 +96,7 @@ def assemblage(u,x0,model,iteration=None):
         kin = kinematics.kinematics(x0_e,u_e,v0,element)
             
         # calculate force, stiffness (and stress, strain, state var.)
-        Tij_e, Kijd_e, Kijp_e, stress_e = kinetics.stiffness_force(u_e,x0_e,v0,kin,element,material)
+        Tij_e, Kijd_e, Kijp_e, stress_e = kinetics.stiffness_force(u_e,x0_e,v0,kin,element,material,constdb)
         return Tij_e.flatten(), Kijd_e.flatten(), Kijp_e.flatten()
     
     num_cores = multiprocessing.cpu_count()#//2
