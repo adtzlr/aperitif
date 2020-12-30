@@ -209,8 +209,10 @@ def uhypervol(J, material, statevars_old=None, full_output=True):
     
     :math:`U(J)=\frac{K}{2}(J-1)^2`
     '''
-    
-    K = material.parameters.K
+    if 'user' in material.type:
+        K = material.parameters.all[0]
+    else:
+        K = material.parameters.K
     
     U = K/2*(J-1)**2
     #U = 9*K/2*(J**(1/3)-1)**2
@@ -279,24 +281,34 @@ def uhyperiso(F, material, statevars_old=None, full_output=True,
     
     # distortional part of right cauchy-green deformation tensor
     
-    J = det(F)
-    C = F.T@F
-    Ciso = J**(-2/3)*C
-    I1iso = np.trace(Ciso)
-    I2iso = (I1iso**2-np.trace(Ciso@Ciso))/2
-
-    if category == 'stretch':
-        λiso = np.sqrt(eigvals(Ciso,I1iso,I2iso,1))
-        #λiso = np.sqrt(np.linalg.eigh(Ciso)[0])
+    def invariants(C,detC):
+        I1 = np.trace(C)
+        I2 = (I1**2-np.trace(C@C))/2
+        I3 = detC
+        return np.array([I1,I2,I3])
     
-        # hyperelastic strain energy density
-        ψ, statevars = upsi(λiso, material, statevars_old)
-
-    elif category == 'invariants':
-        inviso = np.array([I1iso,I2iso,1])
+    cat, iso = category.split('-')[:2]
+    
+    J = det(F)
+    
+    if iso:
+        C    = J**(-2/3)*F.T@F
+        detC = 1.0
+    else:
+        C = F.T@F
+        detC = J**2
         
+    inv = invariants(C,detC)
+
+    if cat == 'stretch':
+        λ = np.sqrt(eigvals(C,inv,tol=1e-6))
+        #λ = np.sqrt(np.linalg.eigh(C)[0])
         # hyperelastic strain energy density
-        ψ, statevars = upsi(inviso, material, statevars_old)
+        ψ, statevars = upsi(λ, material, statevars_old)
+
+    elif cat == 'invariants':
+        # hyperelastic strain energy density
+        ψ, statevars = upsi(inv, material, statevars_old)
     #statevars = statevars_old
     
     if material.damage:
@@ -310,27 +322,21 @@ def uhyperiso(F, material, statevars_old=None, full_output=True,
     else:
         return η*ψ  
     
-def eigvals(C,I1,I2,I3):
-    
-    #I1 = np.trace(C)
-    #I2 = (I1**2-np.trace(C@C))/2
-    
+def eigvals(C,inv,tol=1e-6):
+    I1,I2,I3 = inv
     k = I1**2-3*I2
-    
-    tol = 1e-6
     if abs(k) < tol:
         lam3 = np.ones(3)*I1
     else:
         a = np.arange(3)
         theta = np.arccos((2*I1**3-9*I1*I2+27*I3)/(2*k**(3/2)))
         lam3 = I1+2*k**(1/2)*np.cos((theta+2*np.pi*(a))/3)
-    
     return lam3/3
 
 # 'H'yperelastic 'I'sorochic 'S'tretch 'K'-formulation
 hisk         = SimpleNamespace()
 hisk.upsi    = uhyperstretchk
-hisk.ψ       = partial(uhyperiso,upsi=hisk.upsi,category='stretch')
+hisk.ψ       = partial(uhyperiso,upsi=hisk.upsi,category='stretch-iso')
 hisk.dψdF    =    dF(hisk.ψ)
 hisk.d2ψdFdF = dF(dF(hisk.ψ))
 hisk.U       = uhypervol
@@ -340,15 +346,66 @@ hisk.d2UdJdJ = dJ(dJ(hisk.U))
 # 'H'yperelastic 'I'sorochic 'I'nvariants 'T'.O.D.
 hiit         = SimpleNamespace()
 hiit.upsi    = uhyperinvariants
-hiit.ψ       = partial(uhyperiso,upsi=hiit.upsi,category='invariants')
+hiit.ψ       = partial(uhyperiso,upsi=hiit.upsi,category='invariants-iso')
 hiit.dψdF    =    dF(hiit.ψ)
 hiit.d2ψdFdF = dF(dF(hiit.ψ))
 hiit.U       = uhypervol
 hiit.dUdJ    =    dJ(hiit.U)
 hiit.d2UdJdJ = dJ(dJ(hiit.U))
 
+# 'H'yperelastic 'N'o-Split 'I'nvariants 'T'.O.D.
+hnit         = SimpleNamespace()
+hnit.upsi    = uhyperinvariants
+hnit.ψ       = partial(uhyperiso,upsi=hnit.upsi,category='invariants-nos')
+hnit.dψdF    =    dF(hnit.ψ)
+hnit.d2ψdFdF = dF(dF(hnit.ψ))
+hnit.U       = uhypervol
+hnit.dUdJ    =    dJ(hnit.U)
+hnit.d2UdJdJ = dJ(dJ(hnit.U))
+
+# 'H'yperelastic 'N'o-Split 'N'eo-Hookean Material with manual derivatives
+def upsi_hnnh(F,material,statevars_old=None,full_output=True):
+    C10 = material.parameters.C10
+    C = F.T@F
+    psi = C10*((np.trace(C)-3)-np.log(np.linalg.det(F)))
+    if full_output:
+        return psi, statevars_old
+    else:
+        return psi 
+    
+def udpsidF_hnnh(F,material,statevars_old=None,full_output=True):
+    C10 = material.parameters.C10
+    iFT = np.linalg.inv(F).T
+    P = 2*C10*(F-iFT)
+    if full_output:
+        return P, statevars_old
+    else:
+        return P 
+    
+def ud2psidFdF_hnnh(F,material,statevars_old=None,full_output=True):
+    C10 = material.parameters.C10
+    I = np.eye(3)
+    iFT = np.linalg.inv(F).T
+    A = 2*C10*(np.einsum('ik,jl',I,I)+np.einsum('il,kj',iFT,iFT))
+    if full_output:
+        return A, statevars_old
+    else:
+        return A 
+    
+hnnh         = SimpleNamespace()
+hnnh.upsi    = upsi_hnnh
+hnnh.ψ       = upsi_hnnh
+hnnh.dψdF    = udpsidF_hnnh
+hnnh.d2ψdFdF = ud2psidFdF_hnnh
+hnnh.U       = uhypervol
+hnnh.dUdJ    =    dJ(hnit.U)
+hnnh.d2UdJdJ = dJ(dJ(hnit.U))
+
+
 database = {'hyp-iso-str-k': hisk, 
             'hyp-iso-inv': hiit,
+            'hyp-nos-inv': hnit,
+            'hyp-nos-nhm': hnnh,
            }
 
 if __name__ == '__main__':

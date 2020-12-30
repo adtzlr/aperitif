@@ -55,32 +55,43 @@ def init_state(model):
 
 def job(model,state=None):
     
+    print('INIT JOB')
+    print('--------')
+    
     if state is None:
         state = init_state(model)
         
     history = [copy.copy(state)]
-
-    print('INIT STATE')
-    print('----------')
     
+    print('\nLIST OF LOADCASES:')
+    [print('* %s' % lcase.label) for lcase in model.loadcases]
+    
+    dtmin = 1e-4
     for lcase in model.loadcases:
+        print('\n\n')
         print('\nBEGIN LOADCASE %s \n' % lcase.label)
 
         t  = lcase.start
-        dt = lcase.duration/lcase.nincs
+        dt = abs(lcase.duration/lcase.nincs)
         
         print('Start      = %1.4e' % lcase.start)
         print('Duration   = %1.4e' % lcase.duration)
-        print('Increments = %d'    % lcase.nincs)
+        if lcase.nincs < 0:
+            print('Increments = %d (automatic ramp)'    % abs(lcase.nincs))
+        else:
+            print('Increments = %d'    % lcase.nincs)
         print('Timestep   = %1.4e' % dt)
-        print('\n\n')
         
         dof1 = model.dof.active
         dof0 = model.dof.inactive
         
         stop = False
-        while t < lcase.duration:
+        
+        # INCREMENT LOOP
+        while t < (lcase.start+lcase.duration):
             t = np.round(t+dt,15)
+            if lcase.nincs < 0:
+                dt = dt*1.2
             
             if t > lcase.duration:
                 t = lcase.duration
@@ -98,13 +109,15 @@ def job(model,state=None):
             u, uG = uh[dof1], uh[dof0]
             
             state.converged = False
-            rh, KTd, KTp, state = force(uh, (model,state))
+            rhd, rhp, KTd, KTp, state = force(uh, (model,state))
             
+            rh = rhd+rhp
             r, rG = rh[dof1], rh[dof0]
 
+            # NEWTON ITERATIONS
             for n in range(lcase.nmax):
-                
                 #KT = KT.toarray()
+                
                 KT_11 = (KTd+KTp)[dof1.flatten(),:][:,dof1.flatten()]
                 KT_10 = (KTd+KTp)[dof1.flatten(),:][:,dof0.flatten()]
                 #KT_01 = KT[dof0.flatten(),:][:,dof1.flatten()]
@@ -115,7 +128,7 @@ def job(model,state=None):
                     
                 duG = (uG_k[dof0] - uG)
                 #du = KT_11i@(-r+f_k[dof1]-KT_10.dot(duG))
-                du  = solve(KT_11, -r+f_k[dof1]-KT_10.dot(duG),
+                du  = solve(KT_11, -(rhd+rhp)[dof1]+f_k[dof1]-KT_10.dot(duG),
                             )#use_umfpack=True
                 
                 duh = np.zeros_like(uh)
@@ -125,8 +138,9 @@ def job(model,state=None):
                 uh = uh + duh
                 
                 state.iteration = None
-                rh, KTd, KTp, state = force(uh, (model,state))
+                rhd, rhp, KTd, KTp, state = force(uh, (model,state))
                 
+                rh = rhd+rhp
                 u, uG = uh[dof1], uh[dof0]
                 r, rG = rh[dof1], rh[dof0]
                 
@@ -156,9 +170,16 @@ def job(model,state=None):
             if state.converged:
                 history.append(copy.copy(state))
             else:
-                break
+                print('   NR-IT. process failed.')
+                if lcase.nincs < 0:
+                    t = t-dt
+                    dt = dt/2
+                    stop = False
+                    if dt < dtmin:
+                        break
+                else:
+                    break
             
             if stop:
                 break
-        
-        return history
+    return history

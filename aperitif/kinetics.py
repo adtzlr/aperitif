@@ -67,14 +67,16 @@ def stiffness_force(u,x0,v0,kinematics,element,material,constdb):
         s6 = np.tile(p*mathlib.I6,(element.npgauss,1))
     
         # internal force and stiffness (pre-evaluated parts) 
-        internal_force = p*v*M
-        stiffness_p    = dpdJ*Jm*v*MM
-        stiffness_d    = p*v*HH
+        internal_force_p = p*v*M
+        internal_force_d = np.zeros_like(M)
+        stiffness_p      = p*v*HH+dpdJ*Jm*v*MM
+        stiffness_d      = np.zeros((nnodes,ndim,nnodes,ndim))
     else:
         s6 = np.tile(np.zeros(6),(element.npgauss,1))
-        internal_force = np.zeros((nnodes,ndim))
-        stiffness_d    = np.zeros((nnodes,ndim,nnodes,ndim))
-        stiffness_p    = np.zeros((nnodes,ndim,nnodes,ndim))
+        internal_force_d = np.zeros((nnodes,ndim))
+        internal_force_p = np.zeros((nnodes,ndim))
+        stiffness_d      = np.zeros((nnodes,ndim,nnodes,ndim))
+        stiffness_p      = np.zeros((nnodes,ndim,nnodes,ndim))
 
     for ip, (J,F,dhdx,Jr,w) in enumerate(zip(
             kinematics.J,
@@ -94,7 +96,7 @@ def stiffness_force(u,x0,v0,kinematics,element,material,constdb):
         
         s6[ip] += mathlib.tovoigt(sdev)
         
-        internal_force += tdot(dhdx,sdev[:ndim,:ndim],1)*Jr*w
+        internal_force_d += tdot(dhdx,sdev[:ndim,:ndim],1)*Jr*w
         
         #at4 = a4dev[:ndim,:ndim,:ndim,:ndim].transpose([1,0,2,3])
         #stiffness += tdot( tdot(dhdx,at4,1), dhdx.T, 1) * Jr*w
@@ -102,4 +104,4 @@ def stiffness_force(u,x0,v0,kinematics,element,material,constdb):
         stiffness_d += np.einsum('aj,ijkl,bl->aibk',
                                dhdx,a4dev[:ndim,:ndim,:ndim,:ndim],dhdx)*Jr*w
 
-    return internal_force, stiffness_d, stiffness_p, s6 #.transpose([0,1,3,2])
+    return internal_force_d, internal_force_p, stiffness_d, stiffness_p, s6 #.transpose([0,1,3,2])

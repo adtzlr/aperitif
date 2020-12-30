@@ -42,7 +42,10 @@ def convert_material_parameters(mtype,mparam,mat):
     if 'user' in mtype.lower():
         p.all = mparam
 
-    if mtype.lower() == 'hyp-iso-inv':
+    if mtype.lower() in ['hyp-iso-inv', 
+                         'hyp-nos-inv',
+                         'hyp-nos-nhm',
+                         ]:
         p.K = mparam[0]
         p.C10 = mparam[1]
         p.C01 = mparam[2]

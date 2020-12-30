@@ -51,11 +51,12 @@ def system_force_stiffness(u,args):
                                  x0=model.nodes,
                                  model=model,
                                  iteration=state.iteration)
-    r = state.iteration.T.toarray().reshape(model.nnodes,model.ndim)
+    rd = state.iteration.Td.toarray().reshape(model.nnodes,model.ndim)
+    rp = state.iteration.Tp.toarray().reshape(model.nnodes,model.ndim)
     Kd = state.iteration.Kd
     Kp = state.iteration.Kp
     
-    return r, Kd, Kp, state
+    return rd, rp, Kd, Kp, state
     
 
 def assemblage(u,x0,model,iteration=None):
@@ -85,7 +86,7 @@ def assemblage(u,x0,model,iteration=None):
         # get element and material informations
         element  = fem.element[elabel]
         material = model.materials[mlabel]
-        constdb  = model.constdb
+        database = model.constitution.database
         
         # slice displacements and initial coordinates 
         # for current elemental nodes
@@ -96,8 +97,10 @@ def assemblage(u,x0,model,iteration=None):
         kin = kinematics.kinematics(x0_e,u_e,v0,element)
             
         # calculate force, stiffness (and stress, strain, state var.)
-        Tij_e, Kijd_e, Kijp_e, stress_e = kinetics.stiffness_force(u_e,x0_e,v0,kin,element,material,constdb)
-        return Tij_e.flatten(), Kijd_e.flatten(), Kijp_e.flatten()
+        Tijd_e, Tijp_e, Kijd_e, Kijp_e, stress_e = kinetics.stiffness_force(
+                u_e,x0_e,v0,kin,element,material,database)
+        
+        return Tijd_e.flatten(), Tijp_e.flatten(), Kijd_e.flatten(), Kijp_e.flatten()
     
     num_cores = multiprocessing.cpu_count()#//2
     #num_cores = 1
@@ -107,17 +110,22 @@ def assemblage(u,x0,model,iteration=None):
                  model.elements.v0)
 
     with parallel_backend('loky',n_jobs=num_cores):
-        results = Parallel(verbose=0,max_nbytes=None)(elem_results(inp,(model,u,x0)) for inp in inputs)
+        results = Parallel(verbose=0,max_nbytes=None)(elem_results(inp,
+                          (model,u,x0)) for inp in inputs)
     
     Tai = model.elements.Tai
     Kai = model.elements.Kai
     Kbj = model.elements.Kbj
     
-    Tij = np.array([item[0] for item in results]).flatten()
-    Kijd = np.array([item[1] for item in results]).flatten()
-    Kijp = np.array([item[2] for item in results]).flatten()
+    Tijd = np.array([item[0] for item in results]).flatten()
+    Tijp = np.array([item[1] for item in results]).flatten()
+    Kijd = np.array([item[2] for item in results]).flatten()
+    Kijp = np.array([item[3] for item in results]).flatten()
 
-    T = sparse.csr_matrix((Tij, (model.elements.Tai,np.zeros_like(Tai))),
+    Td = sparse.csr_matrix((Tijd, (model.elements.Tai,np.zeros_like(Tai))),
+                           shape=(model.ndof,1))
+    
+    Tp = sparse.csr_matrix((Tijp, (model.elements.Tai,np.zeros_like(Tai))),
                            shape=(model.ndof,1))
     
     Kd = sparse.csr_matrix((Kijd, (Kai,Kbj)),
@@ -126,7 +134,8 @@ def assemblage(u,x0,model,iteration=None):
     Kp = sparse.csr_matrix((Kijp, (Kai,Kbj)),
                            shape=(model.ndof,model.ndof))
         
-    iteration.T = T
+    iteration.Td = Td
+    iteration.Tp = Tp
     iteration.Kd = Kd
     iteration.Kp = Kp
     

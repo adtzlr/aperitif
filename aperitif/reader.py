@@ -101,7 +101,10 @@ def load(filename):
     model.boundaries   = readertools.create_boundary_conditions(bcdata)
     model.dof          = readertools.create_dofs(dofdata)
     model.loadcases    = readertools.create_loadcases(lcdata)
-    model.constdb      = constitution.database
+    model.constitution = SimpleNamespace()
+    
+    # init constitutive database
+    model.constitution.database = constitution.database
         
     # get nodal coordinates
     model.nodes = df['Nodes'].drop(columns=['Id']).values.astype(float)
